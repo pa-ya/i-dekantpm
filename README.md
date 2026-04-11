@@ -8,6 +8,7 @@ This repository is an improved continuation of the original project:
 
 - Original repo: https://github.com/pa-ya/dekantpm
 - Original live demo: https://pa-ya.github.io/dekantpm
+- Improved live demo: https://pa-ya.github.io/i-dekantpm/
 
 ## What This Project Is
 
