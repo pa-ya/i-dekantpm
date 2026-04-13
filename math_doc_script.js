@@ -391,8 +391,13 @@ ContinuousMarket.prototype.discreteBuy = function(traderName, binIdx, grossColla
   // Peak payout with smooth kernel: if this bin wins, kernel = 1.0
   var peakPayout = tokensOut * (1 - this.redemptionFeeBps / 10000);
 
+  // Linear probability: x_i / sum(x_j)
+  var sumPos = 0;
+  for (var j = 0; j < this.N; j++) sumPos += this.positions[j];
+  var newProb = sumPos > 0 ? newXi / sumPos : 1 / this.N;
+
   return { tokensOut: tokensOut, fee: fee, lpFee: lpFee, net: net,
-           newProb: (newXi * newXi) / (kNew * kNew),
+           newProb: newProb,
            peakPayout: peakPayout, cost: grossCollateral,
            maxProfit: peakPayout - grossCollateral };
 };
@@ -434,6 +439,7 @@ ContinuousMarket.prototype.discreteSell = function(traderName, binIdx, tokenAmou
 };
 
 ContinuousMarket.prototype._computeWeights = function(mu, sigma) {
+  if (!isFinite(sigma) || sigma <= 0) return null;
   var rawWeights = [];
   var weightSum = 0;
   for (var j = 0; j < this.N; j++) {
@@ -533,16 +539,18 @@ ContinuousMarket.prototype.distributionSell = function(traderName, mu, sigma, to
     tokensPerBin.push(t);
   }
 
+  // Check totalSold BEFORE mutating state to avoid invariant drift on error
+  var totalSold = 0;
+  for (var j = 0; j < this.N; j++) totalSold += tokensPerBin[j];
+  if (totalSold < 0.01) return { error: 'No tokens available to sell in this distribution' };
+
   var oldK = this.k;
   var sumSq = 0;
-  var totalSold = 0;
   for (var j = 0; j < this.N; j++) {
     this.positions[j] -= tokensPerBin[j];
     th.holdings[j] -= tokensPerBin[j];
     sumSq += this.positions[j] * this.positions[j];
-    totalSold += tokensPerBin[j];
   }
-  if (totalSold < 0.01) return { error: 'No tokens available to sell in this distribution' };
 
   var kNew = Math.sqrt(sumSq);
   var grossOut = oldK - kNew;
@@ -793,7 +801,7 @@ function deserializeMarket(data) {
     if (m.lpProviders[name].withdrawn === undefined) m.lpProviders[name].withdrawn = 0;
   }
   m.resolved = data.resolved; m.winningBin = data.winningBin;
-  m.lastResolveValue = data.lastResolveValue || null;
+  m.lastResolveValue = (data.lastResolveValue !== undefined && data.lastResolveValue !== null) ? data.lastResolveValue : null;
   m.lastResolvePayouts = data.lastResolvePayouts || null;
   return m;
 }
@@ -1038,7 +1046,7 @@ function initPlayground() {
   var rMax = parseFloat(document.getElementById('pgRangeMax').value);
   var L = parseInt(document.getElementById('pgLiquidity').value);
   var question = (document.getElementById('pgQuestion') || {}).value || '';
-  if (rMax <= rMin || N < 2 || L < 1000) { alert('Invalid parameters'); return; }
+  if (isNaN(rMin) || isNaN(rMax) || isNaN(N) || isNaN(L) || rMax <= rMin || N < 2 || L < 1000) { alert('Invalid parameters'); return; }
 
   // Save current market's action count
   if (currentMarketIdx >= 0 && markets[currentMarketIdx]) {
@@ -1050,7 +1058,7 @@ function initPlayground() {
     tradeFeeBps: parseInt(document.getElementById('feeTradeFeeBps').value) || 0,
     lpFeeSharePct: parseInt(document.getElementById('feeLpFeeSharePct').value) || 0,
     redemptionFeeBps: parseInt(document.getElementById('feeRedemptionFeeBps').value) || 0,
-    kernelWidth: parseInt(document.getElementById('feeKernelWidth').value) || DEFAULT_KERNEL_WIDTH,
+    kernelWidth: (function() { var v = parseInt(document.getElementById('feeKernelWidth').value); return isNaN(v) ? DEFAULT_KERNEL_WIDTH : v; })(),
   };
 
   // Create new market
@@ -2406,7 +2414,10 @@ function updateDiscreteTradePreview() {
     tokensOut = newXi - market.positions[bin];
     var peakPayout = tokensOut * (1 - market.redemptionFeeBps / 10000);
     var maxProfit = peakPayout - amount;
-    newProb = (newXi * newXi) / (kNew * kNew);
+    // Linear probability: x_i / sum(x_j) after trade
+    var sumPosPreview = 0;
+    for (var j = 0; j < market.N; j++) sumPosPreview += (j === bin ? newXi : market.positions[j]);
+    newProb = sumPosPreview > 0 ? newXi / sumPosPreview : 1 / market.N;
 
     var profitPct = amount > 0 ? (maxProfit / amount * 100).toFixed(1) + '%' : '-';
     html = '<div class="preview-header">' + langText('Buy Preview', '\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u062E\u0631\u06CC\u062F') + '</div>';
@@ -2432,7 +2443,10 @@ function updateDiscreteTradePreview() {
     var grossOut = market.k - kNewS;
     fee = Math.floor(grossOut * market.tradeFeeBps / 10000);
     collateralOut = grossOut - fee;
-    newProb = kNewS > 0 ? (newXiS * newXiS) / (kNewS * kNewS) : 0;
+    // Linear probability: x_i / sum(x_j) after trade
+    var sumPosSell = 0;
+    for (var j = 0; j < market.N; j++) sumPosSell += (j === bin ? newXiS : market.positions[j]);
+    newProb = sumPosSell > 0 ? newXiS / sumPosSell : 0;
 
     html = '<div class="preview-header">' + langText('Sell Preview', '\u067E\u06CC\u0634\u200C\u0646\u0645\u0627\u06CC\u0634 \u0641\u0631\u0648\u0634') + '</div>';
     html += '<div class="preview-grid">';
@@ -2477,13 +2491,22 @@ function updateDistTradePreview() {
     if (discrim < 0) { el.style.display = 'none'; return; }
     var lambda = Math.sqrt(discrim) - XW;
 
-    var totalTokens = 0, maxTokens = 0, peakBin = 0;
+    var tokensPerBinP = [];
+    var totalTokens = 0;
     for (var j = 0; j < market.N; j++) {
       var t = (lambda * W[j]) / W2;
+      tokensPerBinP.push(t);
       totalTokens += t;
-      if (t > maxTokens) { maxTokens = t; peakBin = j; }
     }
-    var peakPayout = maxTokens * (1 - market.redemptionFeeBps / 10000);
+    // Kernel-aware peak payout: find the winning bin that maximizes payout
+    var peakPayout = 0, peakBin = 0;
+    for (var w = 0; w < market.N; w++) {
+      var wKernel = market.getSettlementKernel(w);
+      var payoutW = 0;
+      for (var jj = 0; jj < market.N; jj++) payoutW += tokensPerBinP[jj] * wKernel[jj];
+      if (payoutW > peakPayout) { peakPayout = payoutW; peakBin = w; }
+    }
+    peakPayout *= (1 - market.redemptionFeeBps / 10000);
     var maxProfit = peakPayout - amount;
 
     var profitPct = amount > 0 ? (maxProfit / amount * 100).toFixed(1) + '%' : '-';

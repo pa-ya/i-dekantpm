@@ -633,6 +633,7 @@ html.lang-fa .note-box {
 
 .control-input[type="range"] {
   -webkit-appearance: none;
+  appearance: none;
   height: 6px;
   background: var(--border);
   border-radius: 3px;
@@ -642,6 +643,7 @@ html.lang-fa .note-box {
 
 .control-input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -2656,7 +2658,10 @@ html.lang-fa .ptable th { text-align: right; }
     $$\text{bin}_{\text{win}} = \left\lfloor\frac{(v-a) \cdot N}{b-a}\right\rfloor, \quad K_i = \max\!\left(0, \; 1 - \frac{|i - \text{bin}_{\text{win}}|}{W+1}\right)$$
   </div>
   <div class="math-block">
-    $$\text{payout}_{\text{trader}} = \sum_{i=0}^{N-1} \text{holdings}_i \times K_i \times (1 - \text{redemption\_fee})$$
+    $$\text{raw\_claim}_{\text{trader}} = \sum_{i=0}^{N-1} \text{holdings}_i \times K_i$$
+  </div>
+  <div class="math-block">
+    $$s = \min\!\left(1, \; \frac{k}{\sum_{\text{all traders}} \text{raw\_claim}}\right), \quad \text{payout}_{\text{trader}} = \text{raw\_claim} \times s \times (1 - \text{redemption\_fee})$$
   </div>
 
   <div class="subsection-title">
@@ -2664,8 +2669,8 @@ html.lang-fa .ptable th { text-align: right; }
     <span class="lang-fa">۷.۳ تضمین توانایی پرداخت</span>
   </div>
   <div class="note-box">
-    <p class="lang-en"><strong>Theorem:</strong> The vault holds &#8805; k collateral at all times. The smooth kernel has K_i &#8804; 1 for all bins, so the total kernel-weighted payout &#8804; &#931; positions_i (from the invariant surface). System is always solvent. &#8718;</p>
-    <p class="lang-fa"><strong>قضیه:</strong> صندوق همیشه &#8805; k وثیقه دارد. هسته هموار K_i &#8804; 1 برای همه بازه‌ها، بنابراین مجموع پرداخت‌های وزن‌دار هسته &#8804; &#931; positions_i. همیشه توان پرداخت دارد. &#8718;</p>
+    <p class="lang-en"><strong>Theorem:</strong> The vault holds &#8805; k collateral at all times. With smooth kernel (W &gt; 0), total kernel-weighted claims can exceed k when traders hold tokens in multiple nearby bins. A proportional scaling factor s = k / totalClaims is applied when this occurs, ensuring all payouts are scaled down equally to maintain solvency. With W = 0 (winner-take-all), scaling is never needed. &#8718;</p>
+    <p class="lang-fa"><strong>قضیه:</strong> صندوق همیشه &#8805; k وثیقه دارد. با هسته هموار (W &gt; 0)، مجموع ادعاها می‌تواند از k بیشتر شود وقتی معامله‌گران در بازه‌های مجاور توکن دارند. ضریب مقیاس تناسبی s = k / مجموع‌ادعاها اعمال می‌شود تا توان پرداخت حفظ شود. با W = 0 (برنده-همه-را-می‌برد)، مقیاس‌گذاری لازم نیست. &#8718;</p>
   </div>
 </div>
 
