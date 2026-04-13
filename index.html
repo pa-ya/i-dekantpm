@@ -1049,7 +1049,6 @@ html.lang-fa .chart-mode-btn { font-family: var(--font-fa); }
 
 /* Detail cell tooltip */
 .detail-cell {
-  position: relative;
   cursor: pointer;
   max-width: 150px;
 }
@@ -1062,24 +1061,26 @@ html.lang-fa .chart-mode-btn { font-family: var(--font-fa); }
   text-decoration: underline dotted var(--text-muted);
   text-underline-offset: 3px;
 }
-.detail-tooltip {
+/* Hidden data source inside cell — never shown inline */
+.detail-tooltip-data { display: none; }
+/* Fixed overlay that floats above everything */
+.detail-tooltip-overlay {
   display: none;
-  position: absolute;
-  z-index: 100;
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  position: fixed;
+  z-index: 99999;
   background: var(--bg-card);
   border: 1px solid var(--primary);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.45);
   white-space: nowrap;
-  min-width: 200px;
+  min-width: 220px;
   max-height: 300px;
   overflow-y: auto;
+  pointer-events: auto;
 }
-.detail-cell:hover .detail-tooltip { display: block; }
+.detail-tooltip-overlay.visible { display: block; }
+.detail-tooltip-overlay.pinned { border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.55); }
 .detail-tooltip-title {
   font-size: 0.72rem;
   color: var(--text-muted);

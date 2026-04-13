@@ -1541,14 +1541,14 @@ function renderResolvePayouts(result) {
         return '<tr><td>Bin ' + b.bin + '</td><td>' + b.value.toLocaleString() + '</td></tr>';
       }).join('');
       var scaleNote = p.detailScale ? '<div class="detail-tooltip-scale">' + p.detailScale.trim() + '</div>' : '';
-      html += '<td class="detail-cell"><span class="detail-truncated">' + p.detail + '</span>'
-        + '<div class="detail-tooltip">'
-        + '<div class="detail-tooltip-title">Kernel Contributions</div>'
+      var tooltipContent = '<div class="detail-tooltip-title">Kernel Contributions</div>'
         + '<table class="detail-tooltip-table">'
         + '<thead><tr><th>Bin</th><th>Payout</th></tr></thead>'
         + '<tbody>' + tooltipRows + '</tbody></table>'
         + '<div class="detail-tooltip-total">Total: ' + tooltipTotal.toLocaleString() + '</div>'
-        + scaleNote + '</div></td>';
+        + scaleNote;
+      html += '<td class="detail-cell"><span class="detail-truncated">' + p.detail + '</span>'
+        + '<div class="detail-tooltip-data">' + tooltipContent + '</div></td>';
     } else {
       html += '<td>' + p.detail + '</td>';
     }
@@ -1560,6 +1560,107 @@ function renderResolvePayouts(result) {
   }
   html += '</tbody></table></div></div>';
   section.innerHTML = html;
+  setupDetailTooltips();
+}
+
+function setupDetailTooltips() {
+  var overlay = document.getElementById('detailTooltipOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'detailTooltipOverlay';
+    overlay.className = 'detail-tooltip-overlay';
+    document.body.appendChild(overlay);
+  }
+  // State
+  var hideTimer = null;
+  var activeCell = null;
+  var pinned = false;
+
+  function positionOverlay(cell) {
+    var rect = cell.getBoundingClientRect();
+    var oW = overlay.offsetWidth;
+    var oH = overlay.offsetHeight;
+    var left = rect.left + rect.width / 2 - oW / 2;
+    var top = rect.bottom + 8;
+    if (left < 8) left = 8;
+    if (left + oW > window.innerWidth - 8) left = window.innerWidth - 8 - oW;
+    if (top + oH > window.innerHeight - 8) top = rect.top - oH - 8;
+    overlay.style.left = left + 'px';
+    overlay.style.top = top + 'px';
+  }
+
+  function showOverlay(cell) {
+    var data = cell.querySelector('.detail-tooltip-data');
+    if (!data) return;
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    overlay.innerHTML = data.innerHTML;
+    overlay.classList.add('visible');
+    activeCell = cell;
+    positionOverlay(cell);
+  }
+
+  function scheduleHide() {
+    if (pinned) return;
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(function() {
+      overlay.classList.remove('visible');
+      activeCell = null;
+      hideTimer = null;
+    }, 150);
+  }
+
+  function cancelHide() {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+  }
+
+  function dismissPinned() {
+    pinned = false;
+    overlay.classList.remove('pinned', 'visible');
+    activeCell = null;
+  }
+
+  // Overlay hover: keep visible while mouse is inside tooltip
+  overlay.addEventListener('mouseenter', cancelHide);
+  overlay.addEventListener('mouseleave', scheduleHide);
+
+  // Click outside or on overlay to dismiss pinned tooltip
+  document.addEventListener('click', function(e) {
+    if (!pinned) return;
+    // Click on overlay itself — dismiss
+    if (overlay.contains(e.target)) { dismissPinned(); return; }
+    // Click on a detail-cell — handled in cell click below
+    var clickedCell = e.target.closest('.detail-cell');
+    if (clickedCell) return;
+    // Click anywhere else — dismiss
+    dismissPinned();
+  });
+
+  var cells = document.querySelectorAll('.detail-cell');
+  for (var i = 0; i < cells.length; i++) {
+    (function(cell) {
+      cell.addEventListener('mouseenter', function() {
+        if (pinned) return;
+        showOverlay(cell);
+      });
+      cell.addEventListener('mouseleave', function() {
+        if (pinned) return;
+        scheduleHide();
+      });
+      cell.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (pinned && activeCell === cell) {
+          // Unpin
+          dismissPinned();
+        } else {
+          // Pin this cell's tooltip
+          pinned = false; // reset so showOverlay works
+          showOverlay(cell);
+          pinned = true;
+          overlay.classList.add('pinned');
+        }
+      });
+    })(cells[i]);
+  }
 }
 
 // ============================================================
