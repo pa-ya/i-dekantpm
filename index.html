@@ -1047,6 +1047,86 @@ html.lang-fa .chart-mode-btn { font-family: var(--font-fa); }
 .pnl-positive { color: var(--success); font-weight: 700; }
 .pnl-negative { color: var(--danger); font-weight: 700; }
 
+/* Detail cell tooltip */
+.detail-cell {
+  position: relative;
+  cursor: pointer;
+  max-width: 150px;
+}
+.detail-truncated {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+  text-decoration: underline dotted var(--text-muted);
+  text-underline-offset: 3px;
+}
+.detail-tooltip {
+  display: none;
+  position: absolute;
+  z-index: 100;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  white-space: nowrap;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.detail-cell:hover .detail-tooltip { display: block; }
+.detail-tooltip-title {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.detail-tooltip-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.detail-tooltip-table th {
+  text-align: left;
+  color: var(--text-muted);
+  padding: 2px 12px 4px 0;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.detail-tooltip-table td {
+  padding: 4px 12px 4px 0;
+  border-bottom: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
+  text-align: left;
+  font-family: var(--font-mono);
+}
+.detail-tooltip-table tr:last-child td { border-bottom: none; }
+.detail-tooltip-table td:last-child,
+.detail-tooltip-table th:last-child {
+  text-align: right;
+  padding-right: 0;
+}
+.detail-tooltip-total {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+.detail-tooltip-scale {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--warning);
+  font-weight: 600;
+}
+
 /* ============================================================
    EXPANDABLE DEMO
    ============================================================ */

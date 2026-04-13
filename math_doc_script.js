@@ -658,16 +658,25 @@ ContinuousMarket.prototype.resolve = function(value) {
     var kernelBins = [];
     for (var i = 0; i < this.N; i++) {
       if (th.holdings[i] > 0.01 && kernel[i] > 0) {
-        kernelBins.push('bin' + i + ':' + Math.floor(th.holdings[i] * kernel[i] * claimScale));
+        kernelBins.push({ bin: i, value: Math.floor(th.holdings[i] * kernel[i] * claimScale) });
       }
     }
-    var detailStr = kernelBins.length > 0 ? kernelBins.slice(0, 5).join('+') : '0 tokens';
-    if (kernelBins.length > 5) detailStr += '+...';
-    if (claimScale < 1) detailStr += ' (scaled ' + (claimScale * 100).toFixed(1) + '%)';
+    var scaleSuffix = claimScale < 1 ? ' (scaled ' + (claimScale * 100).toFixed(1) + '%)' : '';
+    var shortDetail;
+    if (kernelBins.length === 0) {
+      shortDetail = 'No tokens';
+    } else if (kernelBins.length === 1) {
+      shortDetail = 'bin ' + kernelBins[0].bin + ': ' + kernelBins[0].value.toLocaleString() + scaleSuffix;
+    } else {
+      shortDetail = kernelBins.length + ' bins' + scaleSuffix;
+    }
+    var fullDetail = kernelBins.length > 0
+      ? kernelBins.map(function(b) { return { bin: b.bin, value: b.value }; })
+      : [];
 
     payouts.push({
       name: name, type: 'Trader',
-      detail: detailStr,
+      detail: shortDetail, detailBins: fullDetail, detailScale: scaleSuffix,
       payout: payout, spent: th.spent, received: th.received,
       netPnL: payout + th.received - th.spent
     });
@@ -1525,7 +1534,24 @@ function renderResolvePayouts(result) {
     html += '<tr>';
     html += '<td style="font-weight:700;color:var(--text-heading);">' + p.name + '</td>';
     html += '<td>' + p.type + '</td>';
-    html += '<td>' + p.detail + '</td>';
+    if (p.detailBins && p.detailBins.length > 0) {
+      var tooltipTotal = 0;
+      var tooltipRows = p.detailBins.map(function(b) {
+        tooltipTotal += b.value;
+        return '<tr><td>Bin ' + b.bin + '</td><td>' + b.value.toLocaleString() + '</td></tr>';
+      }).join('');
+      var scaleNote = p.detailScale ? '<div class="detail-tooltip-scale">' + p.detailScale.trim() + '</div>' : '';
+      html += '<td class="detail-cell"><span class="detail-truncated">' + p.detail + '</span>'
+        + '<div class="detail-tooltip">'
+        + '<div class="detail-tooltip-title">Kernel Contributions</div>'
+        + '<table class="detail-tooltip-table">'
+        + '<thead><tr><th>Bin</th><th>Payout</th></tr></thead>'
+        + '<tbody>' + tooltipRows + '</tbody></table>'
+        + '<div class="detail-tooltip-total">Total: ' + tooltipTotal.toLocaleString() + '</div>'
+        + scaleNote + '</div></td>';
+    } else {
+      html += '<td>' + p.detail + '</td>';
+    }
     html += '<td>' + Math.floor(p.payout).toLocaleString() + '</td>';
     html += '<td>' + Math.floor(p.spent).toLocaleString() + '</td>';
     html += '<td class="' + pnlClass + '">' + pnlSign + Math.floor(p.netPnL).toLocaleString() + '</td>';
